@@ -26,11 +26,14 @@ instance ordXi :: Ord Ξ where
 
 instance xiOrdinal :: Ordinal Ξ where
   z = Ø
-  succ _ = Ø
-  lim _ = Ø
+  succ = succ
+  lim = lim
 
-infix 0 Ξ as ##
+ξ :: Ξ -> Ξ -> Ξ
+ξ = Ξ
 
 succ :: Ξ -> Ξ
-succ Ø = Ø ## Ø
-succ (λ ## κ) = Ø
+succ = ξ Ø
+
+lim :: Ξ -> Ξ
+lim = flip ξ Ø

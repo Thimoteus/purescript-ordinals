@@ -11,7 +11,8 @@
     "output"
   ],
   "dependencies": {
-    "purescript-lists": "^0.7.10"
+    "purescript-maps": "^0.5.7",
+    "purescript-hugenums": "^1.3.2"
   },
   "devDependencies": {
     "purescript-console": "^0.1.1"
