@@ -2,24 +2,19 @@ module Test.Main where
 
 import Prelude
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE, print)
+import Control.Monad.Eff.Console (CONSOLE, print, log)
 
-import Data.Ordinal.Cantor (Cantor, exp, finite)
-
-omega :: Cantor
-omega = exp (finite 1)
-
-twotimesomega :: Cantor
-twotimesomega = finite 2 * omega
-
-omegatimestwo :: Cantor
-omegatimestwo = omega * finite 2
+import Data.Ordinal.Cantor (finite, ω, (**))
 
 main :: forall e. Eff (console :: CONSOLE | e) Unit
 main = do
-  print twotimesomega
-  print omegatimestwo
-  print $ twotimesomega == omega
-  print $ exp omega
-  print $ (omega + finite 1) * omega
-
+  log "Standard sum/product breaks Semiring laws:"
+  log "ω ++ finite 3 == finite 3 ++ ω"
+  print $ ω ++ finite 3 == finite 3 ++ ω
+  log "(finite 1 ++ finite 1) ** ω == ω ** (finite 1 ++ finite 1)"
+  print $ (finite 1 ++ finite 1) ** ω == ω ** (finite 1 ++ finite 1)
+  log "While natural sum/product does not:"
+  log "ω + finite 3 == finite 3 + ω"
+  print $ ω + finite 3 == finite 3 + ω
+  log "(finite 1 + finite 1) * ω == ω * (finite 1 + finite 1)"
+  print $ (finite 1 + finite 1) * ω == ω * (finite 1 + finite 1)

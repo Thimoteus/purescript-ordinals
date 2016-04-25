@@ -2,10 +2,14 @@
 -- | ω. That is, every ordinal can be uniquely represented in the form
 -- | ω^β∙c₁₁ + ω^β₂∙c₂ + .. + ω^β₀∙c₀, for ordinals β₁ >= β₂ >= .. >= β₀ and
 -- | positive integers c₁, c₂ .. c₀.
--- | **WARNING**: The `Semiring` instance provided here does not obey the laws,
--- | since it is the standard addition and multiplication of ordinals. There is
--- | a law-obeying version (the Hessenberg sum/product) but that instance is not
--- | provided here.
+-- |
+-- | **CAUTION**: The `Semiring` instance provided here is NOT the standard
+-- | ordinal sum/product. To conform to typeclass laws, `Semiring` follows the
+-- | Hessenberg sum and product.
+-- |
+-- | The `Semigroup` instance here, however, does correspond to standard
+-- | ordinal addition. An extra function and operator (**) are provided for
+-- | standard multiplication.
 
 module Data.Ordinal.Cantor
   ( Cantor
@@ -18,23 +22,25 @@ module Data.Ordinal.Cantor
   , degree
   , exponents
   , ω
+  , multStandard, (**)
   ) where
 
 import Prelude
 
-import Data.Map (Map, toList, keys, singleton, alter, isEmpty, size, fromListWith, delete, update, lookup)
-import Data.List (List(..), head, zipWith, concat, concatMap)
-import Data.Tuple (Tuple(..))
+import Data.Map (Map, toList, keys, singleton, alter, isEmpty, size, fromListWith, delete, update, lookup, unionWith, fromList)
+import Data.List (List(..), head, zipWith, concat, concatMap, filter)
+import Data.Tuple (Tuple(..), snd)
 import Data.Foldable (intercalate, maximum)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Function (on)
 import Data.HugeInt (HugeInt, fromInt, isZero, fromString, isNegative)
 import Data.String (drop, takeWhile)
+import Data.Monoid (class Monoid)
 
 import Control.Ordinal (class Ordinal)
 
-infixl 6 Tuple as &
-infixl 6 type Tuple as &
+infixl 6 Tuple as ×
+infixl 6 type Tuple as ×
 infixr 5 Cons as :
 
 -- | A `Cantor` constructed from a sum represents a transfinite ordinal where
@@ -46,10 +52,10 @@ data Cantor = N HugeInt | Σ (Map Cantor HugeInt)
 instance showCantor :: Show Cantor where
   show (N n) = "finite " <> showHugeInt n
   show (Σ m) = intercalate " + " $ map show' $ toList m where
-    show' (_ & z) | isZero z = ""
-    show' (N z & n) | isZero z = "finite " <> showHugeInt n
-    show' (k & o) | o == fromInt 1 = "exp (" <> show k <> ")"
-    show' (k & v) = "exp (" <> show k <> ")*" <> showHugeInt v
+    show' (_ × z) | isZero z = ""
+    show' (N z × n) | isZero z = "finite " <> showHugeInt n
+    show' (k × o) | o == fromInt 1 = "exp (" <> show k <> ")"
+    show' (k × v) = "exp (" <> show k <> ")*" <> showHugeInt v
 
 showHugeInt :: HugeInt -> String
 showHugeInt = takeWhile (_ /= '.') <<< drop 7 <<< show
@@ -120,14 +126,27 @@ isTransfinite _ = false
 
 simplify :: Cantor -> Cantor
 simplify (Σ m) | size m == 1 =
-                 let f (Just (N z & v)) | isZero z = N v -- finite numbers masquerading as transfinite
-                     f (Just _) = Σ m -- actual transfinite numbers
+                 let f (Just (N z × v)) | isZero z = N v -- finite numbers masquerading as transfinite
+                     f (Just _) = Σ $ filterMap (not <<< isZero) m -- actual transfinite numbers
                      f _ = finite 0 -- impossible?
                   in f $ head $ toList m
                | isEmpty m = finite 0
                | hasEmptyFiniteComponent m = Σ $ delete (finite 0) m
+               | otherwise = Σ $ filterMap (not <<< isZero) m
 simplify (N n) | n < zero = finite 0
 simplify x = x
+
+filterMap :: forall k v. Ord k => (v -> Boolean) -> Map k v -> Map k v
+filterMap p = fromList <<< filter (p <<< snd) <<< toList
+
+fullySimplify :: Cantor -> Cantor
+fullySimplify = until eq simplify
+
+until :: forall a. (a -> a -> Boolean) -> (a -> a) -> a -> a
+until pred f a = until' pred f a a where
+  until' pred f a acc
+    | pred (f a) acc = acc
+    | otherwise = until' pred f (f a) a
 
 hasEmptyFiniteComponent :: Map Cantor HugeInt -> Boolean
 hasEmptyFiniteComponent m =
@@ -136,7 +155,7 @@ hasEmptyFiniteComponent m =
        _ -> false
 
 τ :: Map Cantor HugeInt -> Cantor
-τ = simplify <<< Σ
+τ = fullySimplify <<< Σ
 
 degree :: Cantor -> Cantor
 degree (Σ m) = largestKey m
@@ -145,23 +164,27 @@ degree _ = finite 0
 largestKey :: forall a. Map Cantor a -> Cantor
 largestKey = fromMaybe (finite 0) <<< maximum <<< keys
 
+exponents :: Cantor -> List Cantor
+exponents (N _) = finite 0 : Nil
+exponents (Σ m) = keys m
+
 -- | ω^β * c + ω^β' * c' = ω^β' * c' when β' > β (if β == β' then factor out the constants)
 -- | and if β' < β then it's already in CNF.
-addCantor :: Cantor -> Cantor -> Cantor
-addCantor (N n) (N m) = N (n + m)
-addCantor (N _) λ = λ
-addCantor (Σ m) (N n) =
-  let f (Just m) = m + n
+addStandard :: Cantor -> Cantor -> Cantor
+addStandard (N n) (N m) = N (n + m)
+addStandard (N _) λ = λ
+addStandard (Σ m) (N n) =
+  let f (Just k) = k + n
       f _ = n
-   in Σ $ alterFiniteComponent f m
-addCantor (Σ m) (Σ m') = Σ $ addTransfinite m m'
+   in τ $ alterFiniteComponent f m
+addStandard (Σ m) (Σ m') = τ $ addTransfinite m m'
 
 addTransfinite :: Map Cantor HugeInt -> Map Cantor HugeInt -> Map Cantor HugeInt
 addTransfinite m m' =
-  let f :: Cantor & HugeInt -> Cantor & HugeInt -> List (Cantor & HugeInt)
-      f k@(β & c) l@(β' & c')
+  let f :: Cantor × HugeInt -> Cantor × HugeInt -> List (Cantor × HugeInt)
+      f k@(β × c) l@(β' × c')
         | β' > β = l : Nil
-        | β' == β = β & (c + c') : Nil
+        | β' == β = β × (c + c') : Nil
         | otherwise = k : l : Nil
       ms = toList m
       ms' = toList m'
@@ -169,41 +192,69 @@ addTransfinite m m' =
       mlist = concat zipped
    in fromListWith add mlist
 
-exponents :: Cantor -> List Cantor
-exponents (N _) = finite 0 : Nil
-exponents (Σ m) = keys m
-
 -- | When 0 < α is in CNF, degree α = β₁, leading coeff of α = c₁ 0 < β'
 -- | then α * ω^β' = ω^(β₁ + β') and α * n = ω^β * nc₁₁ + ω^β₂ * c₂ + ...
-multCantor :: Cantor -> Cantor -> Cantor
-multCantor (N m) (N n) = N (m * n)
-multCantor (N z) _ | isZero z = finite 0
-multCantor _ (N z) | isZero z = finite 0
-multCantor κ (N o) | o == fromInt 1 = κ
-multCantor (N o) λ | o == fromInt 1 = λ
-multCantor κ@(Σ m) (N n) = τ $ update (Just <<< mul n) (degree κ) m
-multCantor (N n) (Σ m) =
+multStandard :: Cantor -> Cantor -> Cantor
+multStandard (N m) (N n) = N (m * n)
+multStandard (N z) _ | isZero z = finite 0
+multStandard _ (N z) | isZero z = finite 0
+multStandard κ (N o) | o == fromInt 1 = κ
+multStandard (N o) λ | o == fromInt 1 = λ
+multStandard κ@(Σ m) (N n) = τ $ update (Just <<< mul n) (degree κ) m
+multStandard (N n) (Σ m) =
   let f (Just n') = n * n'
       f _ = fromInt 0
    in τ $ alterFiniteComponent f m
-multCantor (Σ m) (Σ m') =
-  let f mp (N z & n) | isZero z = rmultFinite mp n -- the finite component of an ordinal in CNF
-      f mp (κ & n) = addCantor (largestKey mp) κ & n : Nil -- key-value pairs representing transfinite summands
+multStandard (Σ m) (Σ m') =
+  let f mp (N z × n) | isZero z = rmultFinite mp n -- the finite component of an ordinal in CNF
+      f mp (κ × n) = addStandard (largestKey mp) κ × n : Nil -- key-value pairs representing transfinite summands
       ms' = toList m'
       mapped = concatMap (f m) ms' -- use left distribution
    in τ $ fromListWith add mapped
 
-rmultFinite :: Map Cantor HugeInt -> HugeInt -> List (Cantor & HugeInt)
+rmultFinite :: Map Cantor HugeInt -> HugeInt -> List (Cantor × HugeInt)
 rmultFinite mp n =
   let d = largestKey mp
       mp' = update (Just <<< mul n) d mp
    in toList mp'
 
+infixl 7 multStandard as **
+
+addHessenberg :: Cantor -> Cantor -> Cantor
+addHessenberg (N n) (N m) = N (n + m)
+addHessenberg (N n) (Σ m) =
+  let f (Just k) = k + n
+      f _ = n
+   in τ $ alterFiniteComponent f m
+addHessenberg (Σ m) (Σ m') = τ $ unionWith add m m'
+addHessenberg κ λ = addHessenberg λ κ -- exploiting commutativity
+
+multHessenberg :: Cantor -> Cantor -> Cantor
+multHessenberg (N n) (N m) = N (n * m)
+multHessenberg (N n) (Σ m) = τ $ map (mul n) m
+multHessenberg (Σ m) (Σ m') =
+  let ms = toList m
+      ms' = toList m'
+   in τ $ fromListWith add $ multHessTransfinite ms ms'
+multHessenberg κ λ = multHessenberg λ κ -- exploiting commutativity
+
+multHessTransfinite :: List (Cantor × HugeInt) -> List (Cantor × HugeInt) -> List (Cantor × HugeInt)
+multHessTransfinite ms ms' = do
+  (e × c) <- ms
+  (e' × c') <- ms'
+  pure (addHessenberg e e' × mul c c')
+
 instance semiringCantor :: Semiring Cantor where
   one = finite 1
   zero = finite 0
-  add = addCantor
-  mul = multCantor
+  add = addHessenberg
+  mul = multHessenberg
+
+instance semigroupCantor :: Semigroup Cantor where
+  append = addStandard
+
+instance monoidCantor :: Monoid Cantor where
+  mempty = finite 0
 
 ω :: Cantor
 ω = exp $ finite 1

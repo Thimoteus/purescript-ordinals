@@ -1,3 +1,6 @@
+-- | ξ α β is the smallest ordinal γ such that α, β < γ and γ is not the value
+-- | of ξ for any smaller α or same α with smaller β.
+
 module Data.Ordinal.Xi where
 
 import Prelude
