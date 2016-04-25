@@ -43,10 +43,10 @@ infixl 6 Tuple as ×
 infixl 6 type Tuple as ×
 infixr 5 Cons as :
 
--- | A `Cantor` constructed from a sum represents a transfinite ordinal where
--- | keys are exponents and values are coefficients. This allows us to easily
--- | group similar terms by merely adding coefficients, and ensures that terms
--- | are unique when they exist.
+-- A `Cantor` constructed from a sum represents a transfinite ordinal where
+-- keys are exponents and values are coefficients. This allows us to easily
+-- group similar terms by merely adding coefficients, and ensures that terms
+-- are unique when they exist.
 data Cantor = N HugeInt | Σ (Map Cantor HugeInt)
 
 instance showCantor :: Show Cantor where
@@ -95,9 +95,10 @@ exp :: Cantor -> Cantor
 exp λ = τ $ singleton λ $ fromInt 1
 
 -- | κ `hasCoeffAt` λ gets the integer coefficient of the degree-λ term of κ.
--- | For example, \ x -> ω `hasCoeffAt` finite x == 1, when x == 1 and 0 otherwise.
+-- | For example, \ x -> ω `hasCoeffAt` finite x == finite 1, when x == finite 1
+-- | and finite 0 otherwise.
 -- | You can think of it as (!!) on lists where elements are terms of a polynomial,
--- | except the case of Nothing corresponds to a coefficient of 0.
+-- | except the case of Nothing corresponds to a coefficient of zero.
 hasCoeffAt :: Cantor -> Cantor -> HugeInt
 hasCoeffAt (Σ m) λ = fromMaybe zero $ lookup λ m
 hasCoeffAt (N n) (N z) | isZero z = n
@@ -139,14 +140,14 @@ simplify x = x
 filterMap :: forall k v. Ord k => (v -> Boolean) -> Map k v -> Map k v
 filterMap p = fromList <<< filter (p <<< snd) <<< toList
 
+until :: forall a. (a -> a -> Boolean) -> (a -> a) -> a -> a
+until pred f a = until' (f a) a where
+  until' a acc
+    | pred a acc = acc
+    | otherwise = until' (f a) a
+
 fullySimplify :: Cantor -> Cantor
 fullySimplify = until eq simplify
-
-until :: forall a. (a -> a -> Boolean) -> (a -> a) -> a -> a
-until pred f a = until' pred f a a where
-  until' pred f a acc
-    | pred (f a) acc = acc
-    | otherwise = until' pred f (f a) a
 
 hasEmptyFiniteComponent :: Map Cantor HugeInt -> Boolean
 hasEmptyFiniteComponent m =
@@ -192,8 +193,8 @@ addTransfinite m m' =
       mlist = concat zipped
    in fromListWith add mlist
 
--- | When 0 < α is in CNF, degree α = β₁, leading coeff of α = c₁ 0 < β'
--- | then α * ω^β' = ω^(β₁ + β') and α * n = ω^β * nc₁₁ + ω^β₂ * c₂ + ...
+-- When 0 < α is in CNF, degree α = β₁, leading coeff of α = c₁ 0 < β'
+-- then α * ω^β' = ω^(β₁ + β') and α * n = ω^β * nc₁₁ + ω^β₂ * c₂ + ...
 multStandard :: Cantor -> Cantor -> Cantor
 multStandard (N m) (N n) = N (m * n)
 multStandard (N z) _ | isZero z = finite 0
