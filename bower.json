@@ -1,6 +1,11 @@
 {
   "name": "purescript-ordinals",
   "version": "1.0.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/Thimoteus/purescript-ordinals.git"
+  },
   "moduleType": [
     "node"
   ],
