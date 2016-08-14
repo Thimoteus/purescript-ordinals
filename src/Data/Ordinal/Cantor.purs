@@ -25,7 +25,7 @@ module Data.Ordinal.Cantor
   , multStandard, (**)
   ) where
 
-import Prelude
+import Prelude hiding (degree)
 
 import Data.Map (Map, toList, keys, singleton, alter, isEmpty, size, fromListWith, delete, update, lookup, unionWith, fromList)
 import Data.List (List(..), head, zipWith, concat, concatMap, filter)

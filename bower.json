@@ -1,6 +1,6 @@
 {
   "name": "purescript-ordinals",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -16,10 +16,11 @@
     "output"
   ],
   "dependencies": {
-    "purescript-maps": "^0.5.7",
-    "purescript-hugenums": "^1.3.2"
+    "purescript-maps": "^1.1.0",
+    "purescript-hugenums": "^2.0.1"
   },
   "devDependencies": {
-    "purescript-console": "^0.1.1"
+    "purescript-console": "^1.0.0",
+    "purescript-psci-support": "^1.0.0"
   }
 }
